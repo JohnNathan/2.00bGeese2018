@@ -1,6 +1,6 @@
 #include <Servo.h>
-#include "I2Cdev.h"
-#include "MPU6050.h"
+#include <I2Cdev.h>
+#include <MPU6050.h>
 
 
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
@@ -8,25 +8,27 @@
 #endif
 
 #define MIC A0
+#define FSR A1
 
 unsigned long LONG_MAX = 4294967295;
 
 //threshold values to test against
-int32_t IDLE_ACCEL = 4000 // TODO figure out this value: equal to gravity
+int32_t IDLE_ACCEL = 16000; // TODO figure out this value: equal to gravity
+int32_t IDLE_GAIN = 250;
 
 int32_t lowAcceleration = 4096;
 int32_t excitedAcceleration = 12000;
-int32_t angryAcceleration = 22000;
-int32_t lowVolume = 128;
-int32_t excitedVolume = 256;
-int32_t angryVolume = 768;
+int32_t angryAcceleration = 16000;
+int32_t lowVolume = 40;
+int32_t excitedVolume = 80;
+int32_t angryVolume = 160;
 
 //Tracking variables
-byte idle = 0;
-byte happy = 1;
-byte sad = 2;
-byte excited = 3;
-byte angry = 4;
+const byte idle = 0;
+const byte happy = 1;
+const byte sad = 2;
+const byte excited = 3;
+const byte angry = 4;
 
 byte prevState = 0;
 byte state = 0;
@@ -37,10 +39,10 @@ boolean active = false;
 unsigned long timeSinceIdle = LONG_MAX;
 
 //action states
-byte idling = 0;
-byte starting = 1;
-byte executing = 2;
-byte finishing = 3;
+const byte idling = 0;
+const byte starting = 1;
+const byte executing = 2;
+const byte finishing = 3;
 byte actionState = 0;
 
 //Servo Creation
@@ -77,7 +79,7 @@ void setup() {
   Serial.println(accelgyro.testConnection() ? "success" : "failure");
 }
 
-void setState(s) {
+void setState(byte s) {
   prevState = state;
   state = s;
   canAct = false;
@@ -87,7 +89,7 @@ void setState(s) {
 void doAction() {
   switch (actionState) {
     case idling:
-      idle();
+      laze();
       break;
 
     case starting:
@@ -102,12 +104,12 @@ void doAction() {
     case finishing:
       finish();
       actionState = idling;
-      canAct = True;
+      canAct = true;
       break;
   }
 }
 
-void idle() {
+void laze() {
 }
 
 void start() {
@@ -119,13 +121,13 @@ void execute() {
   switch(state) {
     case excited:
       if (t < 200) {
-        extenderServo.write(180);
+        extenderServo.write(100);
       } else if (t < 400) {
-        extenderServo.write(0);
+        extenderServo.write(80);
       } else if (t < 600) {
-        extenderServo.write(180);
+        extenderServo.write(100);
       } else if (t < 800) {
-        extenderServo.write(0);
+        extenderServo.write(80);
       } else {
         extenderServo.write(90);
         actionState = finishing;
@@ -136,9 +138,9 @@ void execute() {
       if (t < 200) {
         armBaseServo.write(110);
       } else if (t < 600) {
-        armUpperServo.write(110);
+        armUpperServo.write(100);
       } else if (t < 1000) {
-        armUpperServo.write(70);
+        armUpperServo.write(80);
       } else {
         armBaseServo.write(90);
         armUpperServo.write(90);
@@ -148,13 +150,13 @@ void execute() {
 
     case angry:
       if (t < 200) {
-        armUpperServo.write(180);
+        armUpperServo.write(110);
       } else if (t < 400) {
-        armUpperServo.write(0);
+        armUpperServo.write(70);
       } else if (t < 600) {
-        armUpperServo.write(180);
+        armUpperServo.write(110);
       } else if (t < 800) {
-        armUpperServo.write(0);
+        armUpperServo.write(70);
       } else {
         armUpperServo.write(90);
         actionState = finishing;
@@ -163,9 +165,9 @@ void execute() {
 
     case sad:
       if (t < 500) {
-        extenderServo.write(70);
+        extenderServo.write(80);
       } else if (t < 1000) {
-        extenderServo.write(110);
+        extenderServo.write(100);
       } else {
         extenderServo.write(90);
         actionState = finishing;
@@ -177,15 +179,29 @@ void finish() {
   actionStart = LONG_MAX;
 }
 
-void loop() {    
+void loop() {
   
   //Check each sensor's value
   accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
-  int gain = analogRead(MIC); // range 0-1023
+  // int gain = abs(analogRead(MIC)-IDLE_GAIN); // range 0-1023
+  int gain = 0;
 
-  int32_t accel_mag = abs(ax) + abs(ay) + abs(az) - IDLE_ACCEL;
+  int32_t accel_mag = pow(pow(ax,2)+pow(ay,2)+pow(az,2), .5)-IDLE_ACCEL;
+
+  int force = analogRead(FSR);
 
   unsigned long currentTime = millis();
+
+  Serial.print("canAct = ");
+  Serial.print(canAct);
+  Serial.print(", state = ");
+  Serial.print(state);
+  Serial.print(", accel_mag = ");
+  Serial.print(accel_mag);
+  Serial.print(", gain = ");
+  Serial.print(gain);
+  Serial.print(", force = ");
+  Serial.println(force);
   
   //Check sensor values against the thresholds
   //If a sensor is within a threshold, do the action associated with said threshold.
@@ -196,6 +212,10 @@ void loop() {
   } else if (timeSinceIdle + 10000 > currentTime && canAct && state == sad) {
     prevState = state;
     state = idle;
+  }
+
+  if(canAct && force > 900) {
+    setState(happy);
   }
 
   if (canAct) {
