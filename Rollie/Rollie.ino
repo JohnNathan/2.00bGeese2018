@@ -183,8 +183,8 @@ void loop() {
   
   //Check each sensor's value
   accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
-  // int gain = abs(analogRead(MIC)-IDLE_GAIN); // range 0-1023
-  int gain = 0;
+  int gain = abs(analogRead(MIC)-IDLE_GAIN); // range 0-1023
+//  int gain = 0;
 
   int32_t accel_mag = pow(pow(ax,2)+pow(ay,2)+pow(az,2), .5)-IDLE_ACCEL;
 
@@ -192,16 +192,17 @@ void loop() {
 
   unsigned long currentTime = millis();
 
-  Serial.print("canAct = ");
-  Serial.print(canAct);
-  Serial.print(", state = ");
-  Serial.print(state);
-  Serial.print(", accel_mag = ");
+  Serial.print("accel_mag = ");
   Serial.print(accel_mag);
   Serial.print(", gain = ");
   Serial.print(gain);
   Serial.print(", force = ");
   Serial.println(force);
+
+  if (canAct)
+    setState(excited);
+  doAction();
+  return;
   
   //Check sensor values against the thresholds
   //If a sensor is within a threshold, do the action associated with said threshold.
