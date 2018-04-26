@@ -97,8 +97,9 @@ float lowpass_step(float input){
 }
 
 bool detect_speech(int reading){
+  
   filtered_mic = lowpass_step(reading);
-  if ((speech_high<=abs(filtered_mic)) and (!speech_state)){
+  if ((speech_low+20<=abs(filtered_mic) <= speech_high+50) and (!speech_state)){
     speech_state = true;
     Serial.println("speech detected");
     return true;
