@@ -22,6 +22,17 @@ int32_t angryAcceleration = 16000;
 int32_t lowVolume = 40;
 int32_t excitedVolume = 80;
 int32_t angryVolume = 160;
+int32_t speech_high = 120;
+int32_t speech_low = 35;
+
+
+//speech filter vars:
+float alpha = 0.7;
+float past=0;
+float updated,filtered_mic;
+
+speech_state = false;
+speech_start_time =0;
 
 //Tracking variables
 const byte idle = 0;
@@ -78,6 +89,28 @@ void setup() {
   Serial.println("testing MPU6050 device connection...");
   Serial.println(accelgyro.testConnection() ? "success" : "failure");
 }
+
+float lowpass_step(float input){
+       updated = input*(1-alpha) + past*(alpha);
+       past = updated;
+       return updated;
+}
+
+bool detect_speech(int reading){
+  filtered_mic = lowpass_step(reading);
+  if ((speech_high<=abs(filtered_mic)) and (!speech_state)){
+    speech_state = true;
+    Serial.println("speech detected");
+    return true;
+    }
+  else if (abs(filtered_mic) <= speech_low && speech_state){
+    speech_state = false;
+    Serial.println("end of speech detected");
+    return false;
+    }
+  return false;
+  Serial.println("no state change, current state is: " + String(speech_state));
+  }
 
 void setState(byte s) {
   prevState = state;
@@ -182,8 +215,10 @@ void finish() {
 void loop() {
   
   //Check each sensor's value
+  
   accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
   int gain = abs(analogRead(MIC)-IDLE_GAIN); // range 0-1023
+  detect_speech(gain);
 //  int gain = 0;
 
   int32_t accel_mag = pow(pow(ax,2)+pow(ay,2)+pow(az,2), .5)-IDLE_ACCEL;
