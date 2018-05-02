@@ -22,6 +22,25 @@ int32_t angryAcceleration = 16000;
 int32_t lowVolume = 40;
 int32_t excitedVolume = 80;
 int32_t angryVolume = 160;
+int32_t speech_high = 120;
+int32_t speech_low = 35;
+int32_t toss_low = 1350;
+int32_t toss_high = 12000;
+
+//speech filter vars:
+float speech_alpha = 0.7; 
+float speech_past=0;
+float speech_updated,filtered_mic;
+float time_since_behavior = 0;
+
+//input detection variables
+int speech_state = 0; //0 = no speech, 1 = whisper, 2 = talking, 3 = shouting 
+unsigned long speech_start_time =0; 
+int force_state = 0; //0 = no acceleration, 1 = toss, 2 = throw, 3 = slam
+unsigned long force_start_time = 0;
+bool hug_state = false;
+unsigned long hug_start_time = 0; 
+
 
 //Tracking variables
 const byte idle = 0;
@@ -78,6 +97,66 @@ void setup() {
   Serial.println("testing MPU6050 device connection...");
   Serial.println(accelgyro.testConnection() ? "success" : "failure");
 }
+
+float lowpass_step(float input){
+       speech_updated = input*(1-speech_alpha) + past*(speech_alpha);
+       speech_past = speech_updated;
+       return speech_updated;
+}
+
+int detect_speech(int reading){
+  
+  filtered_mic = lowpass_step(reading);
+  if ((speech_high <= abs(filtered_mic) <= speech_high+50)and(speech_state != 3)){
+        speech_state = 3;
+    Serial.println("shouts detected");
+    return 3;
+    }
+  else if ((speech_low+50<=abs(filtered_mic) <= speech_high) and (speech_state!= 2)){
+    speech_state = 0;
+    Serial.println("speech detected");
+    return 2;
+    }
+   else if ((speech_low<=abs(filtered_mic) <= speech_low+50) and (speech_state!= 2)){
+    speech_state = 1;
+    Serial.println("whisper detected");
+    return 1;
+    }
+  
+  else if (abs(filtered_mic) <= speech_low && speech_state != 0){
+    speech_state = 0;
+    Serial.println("end of speech detected");
+    return 0;
+    }
+  return 0;
+  Serial.println("no state change, current state is: " + String(speech_state));
+  }
+
+int detect_force(int reading){
+  if ((toss_low-25 <= abs(reading) <= toss_high+50)and(toss_state != 1)){
+        force_state = 1;
+    Serial.println("toss detected");
+    return 1;
+    }
+  else if ((20000<=abs(reading)) and (toss_state!= 3)){
+    force_state = 3;
+    Serial.println("slam detected");
+    return 3;
+    }
+     else if ((toss_high+1000<=abs(reading)) and (toss_state!= 2)){
+    force_state = 2;
+    Serial.println("throw detected");
+    return 2;
+    }
+  else if (abs(filtered_mic) <= speech_low && speech_state != 0){
+    force_state = 0;
+    Serial.println("end of speech detected");
+    return 0;
+    }
+  return 0;
+  Serial.println("no state change, current state is: " + String(force_state));
+  }
+
 
 void setState(byte s) {
   prevState = state;
@@ -182,14 +261,17 @@ void finish() {
 void loop() {
   
   //Check each sensor's value
+  
   accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
   int gain = abs(analogRead(MIC)-IDLE_GAIN); // range 0-1023
+  detect_speech(gain);
+  
 //  int gain = 0;
 
   int32_t accel_mag = pow(pow(ax,2)+pow(ay,2)+pow(az,2), .5)-IDLE_ACCEL;
 
   int force = analogRead(FSR);
-
+  detect_force(force);
   unsigned long currentTime = millis();
 
   Serial.print("accel_mag = ");
@@ -214,38 +296,29 @@ void loop() {
     prevState = state;
     state = idle;
   }
+  if (force_state !=0|| speech_state !=0){
+    time_since_behavior = millis();
+    }
+  else{
+    time_since_behavior ==0;}
 
-  if(canAct && force > 900) {
+  if (millis()- time_since_behavior > 15000){
+    setState(idle);}
+
+   else if (force_state == 3){
+    setState(angry);
+    }
+
+   else if(force_state ==1 || speech_state == 2){
     setState(happy);
-  }
-
-  if (canAct) {
-    if (gain >= angryVolume) {
-      setState(angry);
-    } else if (gain >= excitedVolume) {
-      setState(excited);
-    } else if (gain >= lowVolume) {
-      if (state == happy || state == excited || state == sad) {
-        setState(happy);
-      } else {
-        setState(sad);
-      }
     }
-  }
-
-  if (canAct){
-    if (accel_mag >= angryAcceleration) {
-      setState(angry);
-    } else if (accel_mag >= excitedAcceleration) {
-      setState(excited);
-    } else if (accel_mag >= lowAcceleration) {
-      if (state == happy || state == excited || state == sad) {
-        setState(happy);
-      } else {
-        setState(sad);
-      }
+  else if (force_state == 2 || speech_state ==3){
+    setState(sad);
     }
-  }
+  else if (speech_state ==1){
+    setState(happy);
+    }
+
 
   doAction();
 }
