@@ -22,13 +22,13 @@ int32_t angryAcceleration = 16000;
 int32_t lowVolume = 40;
 int32_t excitedVolume = 80;
 int32_t angryVolume = 160;
-int32_t speech_high = 120;
-int32_t speech_low = 35;
-int32_t toss_low = 1350;
-int32_t toss_high = 12000;
+int32_t speech_high = 60;
+int32_t speech_low = 8;
+int32_t toss_low = 3000;
+int32_t toss_high = 15000;
 
 //speech filter vars:
-float speech_alpha = 0.95; 
+float speech_alpha = 0.4; 
 float speech_past=0;
 float speech_updated,filtered_mic;
 float time_since_behavior = 0;
@@ -120,52 +120,53 @@ float lowpass_step(float input){
 
 int detect_speech(int reading){
   
-  filtered_mic = lowpass_step(reading);
-  if ((speech_high <= abs(filtered_mic) <= speech_high+50)and(speech_state != 3)){
-        speech_state = 3;
+  filtered_mic = abs(lowpass_step(reading));
+  
+  debugPrint("filtered_mic: ");
+  debugPrintln(String(filtered_mic));
+  
+  if ((speech_high <= filtered_mic && filtered_mic < speech_high+50) && (speech_state != 3)){
+    speech_state = 3;
     debugPrintln("shouts detected");
     return 3;
-    }
-  else if ((speech_low+50<=abs(filtered_mic) <= speech_high) and (speech_state!= 2)){
+  } else if ((speech_low+10 <= filtered_mic && filtered_mic < speech_high) && (speech_state!= 2)){
     speech_state = 0;
     debugPrintln("speech detected");
     return 2;
-    }
-   else if ((speech_low<=abs(filtered_mic) <= speech_low+50) and (speech_state!= 2)){
+  } else if ((speech_low <= filtered_mic && filtered_mic < speech_low+10) && (speech_state!= 2)){
     speech_state = 1;
     debugPrintln("whisper detected");
     return 1;
-    }
-  
-  else if (abs(filtered_mic) <= speech_low && speech_state != 0){
+  } else if (filtered_mic < speech_low && speech_state != 0){
     speech_state = 0;
     debugPrintln("end of speech detected");
     return 0;
-    }
-  debugPrint("no state change, current state is: ");
+  }
+  debugPrint("no speech change, current state is: ");
   debugPrintln(String(speech_state));
   return 0;
-  }
+}
 
 int detect_force(int reading){
-  if ((toss_low-25 <= abs(reading) <= toss_high+50)and(force_state != 1)){
+  reading = abs(reading);
+  if ((toss_low-25 <= reading && reading < toss_high+50) && (force_state != 1)){
         force_state = 1;
     debugPrintln("toss detected");
     return 1;
-  } else if ((20000<=abs(reading)) and (force_state!= 3)) {
+  } else if ((20000 <= reading) && (force_state!= 3)) {
       force_state = 3;
       debugPrintln("slam detected");
       return 3;
-  } else if ((toss_high+1000<=abs(reading)) and (force_state!= 2)){
+  } else if ((toss_high+1000 <= reading) && (force_state!= 2)){
       force_state = 2;
       debugPrintln("throw detected");
       return 2;
   } else if (abs(filtered_mic) <= speech_low && speech_state != 0){
       force_state = 0;
-      debugPrintln("end of speech detected");
+      debugPrintln("end of toss detected");
       return 0;
   }
-  debugPrint("no state change, current state is: ");
+  debugPrint("no toss change, current state is: ");
   debugPrintln(String(force_state));
   return 0;
 }
@@ -277,27 +278,27 @@ void loop() {
   
   accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
   int gain = abs(analogRead(MIC)-IDLE_GAIN); // range 0-1023
-  detect_speech(gain);
+//  detect_speech(gain);
   
-//  int gain = 0;
-
   int32_t accel_mag = pow(pow(ax,2)+pow(ay,2)+pow(az,2), .5)-IDLE_ACCEL;
 
   int force = analogRead(FSR);
-  detect_force(force);
+  detect_force(accel_mag);
   unsigned long currentTime = millis();
 
 //  debugPrint("accel_mag = ");
-//  debugPrint(String(accel_mag));
+//  debugPrintln(String(accel_mag));
 //  debugPrint(", gain = ");
 //  debugPrint(String(gain));
 //  debugPrint(", force = ");
 //  debugPrintln(String(force));
 
-  if (canAct)
-    setState(excited);
-  doAction();
   return;
+
+//  if (canAct)
+//    setState(excited);
+//  doAction();
+//  return;
   
   //Check sensor values against the thresholds
   //If a sensor is within a threshold, do the action associated with said threshold.
