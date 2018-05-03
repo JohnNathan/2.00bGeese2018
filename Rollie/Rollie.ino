@@ -28,7 +28,7 @@ int32_t toss_low = 1350;
 int32_t toss_high = 12000;
 
 //speech filter vars:
-float speech_alpha = 0.7; 
+float speech_alpha = 0.95; 
 float speech_past=0;
 float speech_updated,filtered_mic;
 float time_since_behavior = 0;
@@ -74,12 +74,26 @@ MPU6050 accelgyro;
 int16_t ax, ay, az;
 int16_t gx, gy, gz;
 
+uint16_t printCount = 0;
+
+void debugPrint(String msg) {
+  if (printCount % 100 == 0) {
+    Serial.print(msg);
+  }
+}
+
+void debugPrintln(String msg) {
+  if (printCount % 100 == 0) {
+    Serial.println(msg);
+  }
+}
+
 void setup() {
   Serial.begin(9600);
-  Serial.println("setup()");
+  debugPrintln("setup()");
   
   //Initialize all servos
-  Serial.println("initializing servos...");
+  debugPrintln("initializing servos...");
   extenderServo.attach(9);
   armBaseServo.attach(10);
   armUpperServo.attach(11);
@@ -91,15 +105,15 @@ void setup() {
     Fastwire::setup(400, true);
   #endif
 
-  Serial.println("initializing I2C...");
+  debugPrintln("initializing I2C...");
   accelgyro.initialize();
 
-  Serial.println("testing MPU6050 device connection...");
-  Serial.println(accelgyro.testConnection() ? "success" : "failure");
+  debugPrintln("testing MPU6050 device connection...");
+  debugPrintln(accelgyro.testConnection() ? "success" : "failure");
 }
 
 float lowpass_step(float input){
-       speech_updated = input*(1-speech_alpha) + past*(speech_alpha);
+       speech_updated = input*(1-speech_alpha) + speech_past*(speech_alpha);
        speech_past = speech_updated;
        return speech_updated;
 }
@@ -109,53 +123,52 @@ int detect_speech(int reading){
   filtered_mic = lowpass_step(reading);
   if ((speech_high <= abs(filtered_mic) <= speech_high+50)and(speech_state != 3)){
         speech_state = 3;
-    Serial.println("shouts detected");
+    debugPrintln("shouts detected");
     return 3;
     }
   else if ((speech_low+50<=abs(filtered_mic) <= speech_high) and (speech_state!= 2)){
     speech_state = 0;
-    Serial.println("speech detected");
+    debugPrintln("speech detected");
     return 2;
     }
    else if ((speech_low<=abs(filtered_mic) <= speech_low+50) and (speech_state!= 2)){
     speech_state = 1;
-    Serial.println("whisper detected");
+    debugPrintln("whisper detected");
     return 1;
     }
   
   else if (abs(filtered_mic) <= speech_low && speech_state != 0){
     speech_state = 0;
-    Serial.println("end of speech detected");
+    debugPrintln("end of speech detected");
     return 0;
     }
+  debugPrint("no state change, current state is: ");
+  debugPrintln(String(speech_state));
   return 0;
-  Serial.println("no state change, current state is: " + String(speech_state));
   }
 
 int detect_force(int reading){
-  if ((toss_low-25 <= abs(reading) <= toss_high+50)and(toss_state != 1)){
+  if ((toss_low-25 <= abs(reading) <= toss_high+50)and(force_state != 1)){
         force_state = 1;
-    Serial.println("toss detected");
+    debugPrintln("toss detected");
     return 1;
-    }
-  else if ((20000<=abs(reading)) and (toss_state!= 3)){
-    force_state = 3;
-    Serial.println("slam detected");
-    return 3;
-    }
-     else if ((toss_high+1000<=abs(reading)) and (toss_state!= 2)){
-    force_state = 2;
-    Serial.println("throw detected");
-    return 2;
-    }
-  else if (abs(filtered_mic) <= speech_low && speech_state != 0){
-    force_state = 0;
-    Serial.println("end of speech detected");
-    return 0;
-    }
-  return 0;
-  Serial.println("no state change, current state is: " + String(force_state));
+  } else if ((20000<=abs(reading)) and (force_state!= 3)) {
+      force_state = 3;
+      debugPrintln("slam detected");
+      return 3;
+  } else if ((toss_high+1000<=abs(reading)) and (force_state!= 2)){
+      force_state = 2;
+      debugPrintln("throw detected");
+      return 2;
+  } else if (abs(filtered_mic) <= speech_low && speech_state != 0){
+      force_state = 0;
+      debugPrintln("end of speech detected");
+      return 0;
   }
+  debugPrint("no state change, current state is: ");
+  debugPrintln(String(force_state));
+  return 0;
+}
 
 
 void setState(byte s) {
@@ -274,12 +287,12 @@ void loop() {
   detect_force(force);
   unsigned long currentTime = millis();
 
-  Serial.print("accel_mag = ");
-  Serial.print(accel_mag);
-  Serial.print(", gain = ");
-  Serial.print(gain);
-  Serial.print(", force = ");
-  Serial.println(force);
+//  debugPrint("accel_mag = ");
+//  debugPrint(String(accel_mag));
+//  debugPrint(", gain = ");
+//  debugPrint(String(gain));
+//  debugPrint(", force = ");
+//  debugPrintln(String(force));
 
   if (canAct)
     setState(excited);
@@ -296,30 +309,25 @@ void loop() {
     prevState = state;
     state = idle;
   }
-  if (force_state !=0|| speech_state !=0){
+  if (force_state !=0 || speech_state != 0){
     time_since_behavior = millis();
-    }
-  else{
-    time_since_behavior ==0;}
+  } else {
+    time_since_behavior = 0;
+  }
 
-  if (millis()- time_since_behavior > 15000){
-    setState(idle);}
-
-   else if (force_state == 3){
+  if (millis() - time_since_behavior > 15000){
+    setState(idle);
+  } else if (force_state == 3) {
     setState(angry);
-    }
-
-   else if(force_state ==1 || speech_state == 2){
+  } else if (force_state == 1 || speech_state == 2) {
     setState(happy);
-    }
-  else if (force_state == 2 || speech_state ==3){
+  } else if (force_state == 2 || speech_state == 3) {
     setState(sad);
-    }
-  else if (speech_state ==1){
+  } else if (speech_state == 1) {
     setState(happy);
-    }
+  }
 
-
+  printCount++;
   doAction();
 }
 
