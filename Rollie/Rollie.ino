@@ -26,12 +26,16 @@ int32_t speech_high = 60;
 int32_t speech_low = 8;
 int32_t toss_low = 3000;
 int32_t toss_high = 15000;
+int32_t hug_low = 700;
+int32_t high_high = 900;
+
 
 //speech filter vars:
 float speech_alpha = 0.4; 
 float speech_past=0;
 float speech_updated,filtered_mic;
 float time_since_behavior = 0;
+float LONG_HUG_TIME = 5000;
 
 //input detection variables
 int speech_state = 0; //0 = no speech, 1 = whisper, 2 = talking, 3 = shouting 
@@ -51,6 +55,7 @@ const byte angry = 4;
 
 byte prevState = 0;
 byte state = 0;
+bool asleep = true;
 bool canAct = true;
 unsigned long actionStart = LONG_MAX;
 
@@ -146,7 +151,25 @@ int detect_speech(int reading){
   debugPrintln(String(speech_state));
   return 0;
 }
-
+int detect_hug(int reading){
+  reading = abs(reading);
+  if (hug_low < reading && reading < hug_high && hug_state == 0){
+      hug_state = 1;
+      hug_start_time = millis();
+      debugPrintln("hug detected");
+      return 1;
+    }
+  else if (hug_low < reading && reading < hug_high && millis() -hug_start_time >= LONG_HUG_TIME){
+      hug_state = 2;
+      debugPrintln(" long hug detected");
+      return 2;
+    }
+  else if (reading < hug_low){
+    hug_state = 0;
+    debugPrintln("end of hug");
+    return 0;
+    }
+  }
 int detect_force(int reading){
   reading = abs(reading);
   if ((toss_low-25 <= reading && reading < toss_high+50) && (force_state != 1)){
@@ -265,6 +288,8 @@ void execute() {
         extenderServo.write(90);
         actionState = finishing;
       }
+    case wake:
+      setState(excited);
   }
 }
 
@@ -315,16 +340,20 @@ void loop() {
   } else {
     time_since_behavior = 0;
   }
-
-  if (millis() - time_since_behavior > 15000){
+  if (hug_state == 1 && asleep = true){
+    setState(wake);
+    asleep = false;
+    }
+  else if (millis() - time_since_behavior > 15000 || hug_state == 2){
     setState(idle);
+    asleep = true;
   } else if (force_state == 3) {
     setState(angry);
   } else if (force_state == 1 || speech_state == 2) {
     setState(happy);
   } else if (force_state == 2 || speech_state == 3) {
     setState(sad);
-  } else if (speech_state == 1) {
+  } else if (speech_state == 1 || hug_state == 1) {
     setState(happy);
   }
 
