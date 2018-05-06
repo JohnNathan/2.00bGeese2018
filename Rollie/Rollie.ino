@@ -12,6 +12,9 @@
 
 unsigned long LONG_MAX = 4294967295;
 
+int vibpin = 6;
+
+
 //threshold values to test against
 int32_t IDLE_ACCEL = 16000; // TODO figure out this value: equal to gravity
 int32_t IDLE_GAIN = 250;
@@ -115,6 +118,7 @@ void setup() {
 
   debugPrintln("testing MPU6050 device connection...");
   debugPrintln(accelgyro.testConnection() ? "success" : "failure");
+  vibrate(1000);
 }
 
 float lowpass_step(float input){
@@ -194,6 +198,14 @@ int detect_force(int reading){
   return 0;
 }
 
+void vibrate(int ms){
+  
+  start_time = millis();
+  analogWrite(vibpin, 153)
+  while (millis() - start_time < ms){
+    }
+  analogWrite(vibpin, 0);
+  }
 
 void setState(byte s) {
   prevState = state;
