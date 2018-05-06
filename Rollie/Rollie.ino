@@ -1,6 +1,7 @@
 #include <Servo.h>
 #include <I2Cdev.h>
 #include <MPU6050.h>
+#include <Adafruit_NeoPixel.h>
 
 
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
@@ -9,10 +10,10 @@
 
 #define MIC A0
 #define FSR A1
-#define VIBPIN 6
 
 unsigned long LONG_MAX = 4294967295;
 
+int vibpin = 6;
 
 //threshold values to test against
 int32_t IDLE_ACCEL = 16000; // TODO figure out this value: equal to gravity
@@ -32,10 +33,16 @@ int32_t hug_low = 700;
 int32_t hug_high = 900;
 
 
-//speech filter vars:
+//filter vars:
 float speech_alpha = 0.4; 
 float speech_past=0;
 float speech_updated,filtered_mic;
+float hug_alpha = 0.1; 
+float hug_past=0;
+float hug_updated;
+float toss_alpha = 0.9; 
+float toss_past=0;
+float toss_updated;
 float time_since_behavior = 0;
 float LONG_HUG_TIME = 5000;
 
@@ -84,6 +91,10 @@ MPU6050 accelgyro;
 int16_t ax, ay, az;
 int16_t gx, gy, gz;
 
+//leds
+Adafruit_NeoPixel LEDs = Adafruit_NeoPixel(60, 6, NEO_GRB + NEO_KHZ800);
+
+
 uint16_t printCount = 0;
 
 void debugPrint(String msg) {
@@ -99,6 +110,7 @@ void debugPrintln(String msg) {
 }
 
 void setup() {
+  analogWrite(vibpin, 153);
   Serial.begin(9600);
   debugPrintln("setup()");
   
@@ -120,19 +132,28 @@ void setup() {
 
   debugPrintln("testing MPU6050 device connection...");
   debugPrintln(accelgyro.testConnection() ? "success" : "failure");
-  analogWrite(VIBPIN, 0);
-  debugPrintln("set vibpin to 0");
+  analogWrite(vibpin, 0);
 }
 
-float lowpass_step(float input){
+float speech_lowpass_step(float input){
        speech_updated = input*(1-speech_alpha) + speech_past*(speech_alpha);
        speech_past = speech_updated;
        return speech_updated;
 }
+float hug_lowpass_step(float input){
+       hug_updated = input*(1-hug_alpha) + hug_past*(hug_alpha);
+       hug_past = hug_updated;
+       return speech_updated;
+}
+float toss_lowpass_step(float input){
+       toss_updated = input*(1-toss_alpha) + toss_past*(toss_alpha);
+       toss_past = toss_updated;
+       return toss_updated;
+}
 
 int detect_speech(int reading){
   
-  filtered_mic = abs(lowpass_step(reading));
+  filtered_mic = abs(speech_lowpass_step(reading));
   
   debugPrint("filtered_mic: ");
   debugPrintln(String(filtered_mic));
@@ -158,27 +179,27 @@ int detect_speech(int reading){
   debugPrintln(String(speech_state));
   return 0;
 }
-
 int detect_hug(int reading){
-  reading = abs(reading);
+  reading = hug_lowpass_step(abs(reading));
   if (hug_low < reading && reading < hug_high && hug_state == 0){
-    hug_state = 1;
-    hug_start_time = millis();
-    debugPrintln("hug detected");
-    return 1;
-  } else if (hug_low < reading && reading < hug_high && millis() -hug_start_time >= LONG_HUG_TIME){
-    hug_state = 2;
-    debugPrintln(" long hug detected");
-    return 2;
-  } else if (reading < hug_low){
+      hug_state = 1;
+      hug_start_time = millis();
+      debugPrintln("hug detected");
+      return 1;
+    }
+  else if (hug_low < reading && reading < hug_high && millis() -hug_start_time >= LONG_HUG_TIME){
+      hug_state = 2;
+      debugPrintln(" long hug detected");
+      return 2;
+    }
+  else if (reading < hug_low){
     hug_state = 0;
     debugPrintln("end of hug");
     return 0;
+    }
   }
-}
-
-int detect_accel(int reading) {
-  reading = abs(reading);
+int detect_force(int reading){
+  reading = toss_lowpass_step(abs(reading));
   if ((toss_low-25 <= reading && reading < toss_high+50) && (force_state != 1)){
         force_state = 1;
     debugPrintln("toss detected");
@@ -200,6 +221,8 @@ int detect_accel(int reading) {
   debugPrintln(String(force_state));
   return 0;
 }
+
+
 
 void setState(byte s) {
   prevState = state;
@@ -308,10 +331,8 @@ void execute() {
         extenderServo.write(90);
         actionState = finishing;
       }
-    
     case wake:
       setState(excited);
-      break;
   }
 }
 
@@ -328,25 +349,19 @@ void loop() {
   detect_speech(gain);
   
   int32_t accel_mag = pow(pow(ax,2)+pow(ay,2)+pow(az,2), .5)-IDLE_ACCEL;
-  detect_accel(accel_mag);
 
   int force = analogRead(FSR);
+  detect_force(accel_mag);
   unsigned long currentTime = millis();
 
-  debugPrint("accel_mag = ");
-  debugPrint(String(accel_mag));
-  debugPrint(", gain = ");
-  debugPrint(String(gain));
-  debugPrint(", force = ");
-  debugPrint(String(force));
-  debugPrint(", vib = ");
-  debugPrintln(String(vibrate_on));
+//  debugPrint("accel_mag = ");
+//  debugPrintln(String(accel_mag));
+//  debugPrint(", gain = ");
+//  debugPrint(String(gain));
+//  debugPrint(", force = ");
+//  debugPrintln(String(force));
 
-  if (canAct && force > 800) {
-    setState(excited);
-  }
-
-//  return;
+  return;
 
 //  if (canAct)
 //    setState(excited);
@@ -355,41 +370,42 @@ void loop() {
   
   //Check sensor values against the thresholds
   //If a sensor is within a threshold, do the action associated with said threshold.
-//  if (active) {
-//    timeSinceIdle = currentTime;
-//  } else if (timeSinceIdle + 10000 > currentTime && canAct) {
-//    setState(sad);
-//  } else if (timeSinceIdle + 10000 > currentTime && canAct && state == sad) {
-//    prevState = state;
-//    state = idle;
-//  }
-//  if (force_state !=0 || speech_state != 0){
-//    time_since_behavior = millis();
-//  } else {
-//    time_since_behavior = 0;
-//  }
-//  if (hug_state == 1 && asleep){
-////    setState(wake);
-//    asleep = false;
-//    }
-//  else if (millis() - time_since_behavior > 15000 || hug_state == 2){
-//    setState(idle);
-//    asleep = true;
-//  } else if (force_state == 3) {
-//    setState(angry);
-//  } else if (force_state == 1 || speech_state == 2) {
-//    setState(happy);
-//  } else if (force_state == 2 || speech_state == 3) {
-//    setState(sad);
-//  } else if (speech_state == 1 || hug_state == 1) {
-//    setState(happy);
-//  }
-
-  if(vibrate_on) {
-    analogWrite(VIBPIN, 153);
-  } else {
-    analogWrite(VIBPIN, 0);
+  if (active) {
+    timeSinceIdle = currentTime;
+  } else if (timeSinceIdle + 10000 > currentTime && canAct) {
+    setState(sad);
+  } else if (timeSinceIdle + 10000 > currentTime && canAct && state == sad) {
+    prevState = state;
+    state = idle;
   }
+  if (force_state !=0 || speech_state != 0){
+    time_since_behavior = millis();
+  } else {
+    time_since_behavior = 0;
+  }
+  if (hug_state == 1 && asleep){
+    setState(wake);
+    asleep = false;
+    }
+  else if (millis() - time_since_behavior > 15000 || hug_state == 2){
+    setState(idle);
+    asleep = true;
+  } else if (force_state == 3) {
+    setState(angry);
+  } else if (force_state == 1 || speech_state == 2) {
+    setState(happy);
+  } else if (force_state == 2 || speech_state == 3) {
+    setState(sad);
+  } else if (speech_state == 1 || hug_state == 1) {
+    setState(happy);
+  }
+
+  if(vibrate_on){
+    analogWrite(vibpin, 153);
+    }
+  else{
+    analogWrite(vibpin, 0);
+    }
 
   printCount++;
   doAction();
