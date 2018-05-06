@@ -44,7 +44,7 @@ int speech_state = 0; //0 = no speech, 1 = whisper, 2 = talking, 3 = shouting
 unsigned long speech_start_time =0; 
 int force_state = 0; //0 = no acceleration, 1 = toss, 2 = throw, 3 = slam
 unsigned long force_start_time = 0;
-bool hug_state = false;
+int hug_state = 0; //0 = no hug, 1 = short hug, 2 = long hug
 unsigned long hug_start_time = 0; 
 
 
@@ -54,6 +54,7 @@ const byte happy = 1;
 const byte sad = 2;
 const byte excited = 3;
 const byte angry = 4;
+const byte wake = 5; 
 
 byte prevState = 0;
 byte state = 0;
@@ -299,8 +300,8 @@ void execute() {
         extenderServo.write(90);
         actionState = finishing;
       }
-//    case wake:
-//      setState(excited);
+    case wake:
+      setState(excited);
   }
 }
 
@@ -352,7 +353,7 @@ void loop() {
     time_since_behavior = 0;
   }
   if (hug_state == 1 && asleep){
-//    setState(wake);
+    setState(wake);
     asleep = false;
     }
   else if (millis() - time_since_behavior > 15000 || hug_state == 2){
