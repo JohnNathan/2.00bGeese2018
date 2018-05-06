@@ -44,8 +44,10 @@ int speech_state = 0; //0 = no speech, 1 = whisper, 2 = talking, 3 = shouting
 unsigned long speech_start_time =0; 
 int force_state = 0; //0 = no acceleration, 1 = toss, 2 = throw, 3 = slam
 unsigned long force_start_time = 0;
-int hug_state = 0; //0 = no hug, 1 = short hug, 2 = long hug
+int hug_state = 0; //0 = no hug, 1 = short hug, 2 = long hugno
 unsigned long hug_start_time = 0; 
+unsigned long vibrate_start_time = 0;
+bool vibrate_on = false;
 
 
 //Tracking variables
@@ -97,6 +99,7 @@ void debugPrintln(String msg) {
 }
 
 void setup() {
+  analogWrite(vibpin, 153);
   Serial.begin(9600);
   debugPrintln("setup()");
   
@@ -118,7 +121,7 @@ void setup() {
 
   debugPrintln("testing MPU6050 device connection...");
   debugPrintln(accelgyro.testConnection() ? "success" : "failure");
-  vibrate(1000);
+  analogWrite(vibpin, 0);
 }
 
 float lowpass_step(float input){
@@ -198,14 +201,7 @@ int detect_force(int reading){
   return 0;
 }
 
-void vibrate(int ms){
-  
-  unsigned long start_time = millis();
-  analogWrite(vibpin, 153);
-  while (millis() - start_time < ms){
-    }
-  analogWrite(vibpin, 0);
-  }
+
 
 void setState(byte s) {
   prevState = state;
@@ -249,12 +245,19 @@ void execute() {
   switch(state) {
     case excited:
       if (t < 200) {
+        vibrate_on = true;
         extenderServo.write(100);
       } else if (t < 400) {
+        
+        vibrate_on = false;
         extenderServo.write(80);
       } else if (t < 600) {
+        
+        vibrate_on = true;
         extenderServo.write(100);
       } else if (t < 800) {
+        
+        vibrate_on = false;
         extenderServo.write(80);
       } else {
         extenderServo.write(90);
@@ -264,12 +267,15 @@ void execute() {
 
     case happy:
       if (t < 200) {
+        vibrate_on = true; 
         armBaseServo.write(110);
       } else if (t < 600) {
+        vibrate_on = false;
         armUpperServo.write(100);
       } else if (t < 1000) {
         armUpperServo.write(80);
       } else {
+        
         armBaseServo.write(90);
         armUpperServo.write(90);
         actionState = finishing;
@@ -278,6 +284,7 @@ void execute() {
 
     case angry:
       if (t < 200) {
+        vibrate_on = true;
         armUpperServo.write(110);
       } else if (t < 400) {
         armUpperServo.write(70);
@@ -286,6 +293,7 @@ void execute() {
       } else if (t < 800) {
         armUpperServo.write(70);
       } else {
+        vibrate_on = false;
         armUpperServo.write(90);
         actionState = finishing;
       }
@@ -293,7 +301,9 @@ void execute() {
 
     case sad:
       if (t < 500) {
+        vibrate_on = true;
         extenderServo.write(80);
+        vibrate_on = false;
       } else if (t < 1000) {
         extenderServo.write(100);
       } else {
@@ -315,7 +325,7 @@ void loop() {
   
   accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
   int gain = abs(analogRead(MIC)-IDLE_GAIN); // range 0-1023
-//  detect_speech(gain);
+  detect_speech(gain);
   
   int32_t accel_mag = pow(pow(ax,2)+pow(ay,2)+pow(az,2), .5)-IDLE_ACCEL;
 
@@ -368,6 +378,13 @@ void loop() {
   } else if (speech_state == 1 || hug_state == 1) {
     setState(happy);
   }
+
+  if(vibrate_on){
+    analogWrite(vibpin, 153);
+    }
+  else{
+    analogWrite(vibpin, 0);
+    }
 
   printCount++;
   doAction();
