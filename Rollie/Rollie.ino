@@ -158,26 +158,26 @@ int detect_speech(int reading){
   debugPrintln(String(speech_state));
   return 0;
 }
+
 int detect_hug(int reading){
   reading = abs(reading);
   if (hug_low < reading && reading < hug_high && hug_state == 0){
-      hug_state = 1;
-      hug_start_time = millis();
-      debugPrintln("hug detected");
-      return 1;
-    }
-  else if (hug_low < reading && reading < hug_high && millis() -hug_start_time >= LONG_HUG_TIME){
-      hug_state = 2;
-      debugPrintln(" long hug detected");
-      return 2;
-    }
-  else if (reading < hug_low){
+    hug_state = 1;
+    hug_start_time = millis();
+    debugPrintln("hug detected");
+    return 1;
+  } else if (hug_low < reading && reading < hug_high && millis() -hug_start_time >= LONG_HUG_TIME){
+    hug_state = 2;
+    debugPrintln(" long hug detected");
+    return 2;
+  } else if (reading < hug_low){
     hug_state = 0;
     debugPrintln("end of hug");
     return 0;
-    }
   }
-int detect_force(int reading){
+}
+
+int detect_force(int reading) {
   reading = abs(reading);
   if ((toss_low-25 <= reading && reading < toss_high+50) && (force_state != 1)){
         force_state = 1;
@@ -200,8 +200,6 @@ int detect_force(int reading){
   debugPrintln(String(force_state));
   return 0;
 }
-
-
 
 void setState(byte s) {
   prevState = state;
@@ -310,8 +308,10 @@ void execute() {
         extenderServo.write(90);
         actionState = finishing;
       }
+    
     case wake:
       setState(excited);
+      break;
   }
 }
 
@@ -379,12 +379,11 @@ void loop() {
     setState(happy);
   }
 
-  if(vibrate_on){
+  if(vibrate_on) {
     analogWrite(vibpin, 153);
-    }
-  else{
+  } else {
     analogWrite(vibpin, 0);
-    }
+  }
 
   printCount++;
   doAction();
