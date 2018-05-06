@@ -1,7 +1,7 @@
 #include <Servo.h>
 #include <I2Cdev.h>
 #include <MPU6050.h>
-
+#include <Adafruit_NeoPixel.h>
 
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
     #include "Wire.h"
@@ -36,6 +36,12 @@ int32_t hug_high = 900;
 float speech_alpha = 0.55; 
 float speech_past=0;
 float speech_updated,filtered_mic;
+float hug_alpha = 0.1; 
+float hug_past=0;
+float hug_updated;
+float force_alpha = 0.85; 
+float force_past=0;
+float force_updated;
 float time_since_behavior = 0;
 float LONG_HUG_TIME = 5000;
 
@@ -80,6 +86,9 @@ Servo extenderServo;
 Servo armBaseServo;
 Servo armUpperServo;
 
+//LEDS creation
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(60, 6, NEO_GRB + NEO_KHZ800);
+
 //Accelerometer Creation
 MPU6050 accelgyro;
 int16_t ax, ay, az;
@@ -122,17 +131,29 @@ void setup() {
   debugPrintln("testing MPU6050 device connection...");
   debugPrintln(accelgyro.testConnection() ? "success" : "failure");
   analogWrite(vibpin, 0);
+  strip.begin();
+  strip.show();
 }
 
-float lowpass_step(float input){
+float speech_lowpass_step(float input){
        speech_updated = input*(1-speech_alpha) + speech_past*(speech_alpha);
        speech_past = speech_updated;
        return speech_updated;
 }
+float hug_lowpass_step(float input){
+       hug_updated = input*(1-hug_alpha) + hug_past*(hug_alpha);
+       hug_past = hug_updated;
+       return hug_updated;
+}
+float force_lowpass_step(float input){
+       force_updated = input*(1-force_alpha) + force_past*(force_alpha);
+       force_past = force_updated;
+       return force_updated;
+}
 
 int detect_speech(int reading){
   
-  filtered_mic = abs(lowpass_step(reading));
+  filtered_mic = abs(speech_lowpass_step(reading));
   
   debugPrint("filtered_mic: ");
   debugPrintln(String(filtered_mic));
@@ -163,7 +184,7 @@ int detect_speech(int reading){
 }
 
 int detect_hug(int reading){
-  reading = abs(reading);
+  reading = hug_lowpass_filter(abs(reading));
   if (hug_low < reading && reading < hug_high && hug_state == 0 && millis() - hug_start_time > 10 ){
     hug_state = 1;
     hug_start_time = millis();
@@ -182,7 +203,7 @@ int detect_hug(int reading){
 }
 
 int detect_force(int reading) {
-  reading = abs(reading);
+  reading = force_lowpass_filter(abs(reading));
   if ((toss_low-25 <= reading && reading < toss_high+50) && (force_state != 1) && millis() - force_start_time > 200){
     force_state = 1;
     force_start_time = millis();    
@@ -249,38 +270,43 @@ void execute() {
   unsigned long t = millis() - actionStart;
   switch(state) {
     case excited:
+      setLights(1,1.0); 
       if (t < 200) {
         vibrate_on = true;
         extenderServo.write(100);
       } else if (t < 400) {
-        
+        setLights(1,1.0); 
         vibrate_on = false;
         extenderServo.write(80);
       } else if (t < 600) {
-        
+        setLights(1,1.0); 
         vibrate_on = true;
         extenderServo.write(100);
       } else if (t < 800) {
-        
+        setLights(1,1.0); 
         vibrate_on = false;
         extenderServo.write(80);
       } else {
+        setLights(1,1.0); 
         extenderServo.write(90);
         actionState = finishing;
       }
       break;
 
     case happy:
+      setLights(2,0.7);
       if (t < 200) {
         vibrate_on = true; 
         armBaseServo.write(110);
       } else if (t < 600) {
+        setLights(2,0.7);
         vibrate_on = false;
         armUpperServo.write(100);
       } else if (t < 1000) {
+        setLights(2,0.7);
         armUpperServo.write(80);
       } else {
-        
+        setLights(2,0.7);
         armBaseServo.write(90);
         armUpperServo.write(90);
         actionState = finishing;
@@ -288,16 +314,21 @@ void execute() {
       break;
 
     case angry:
+    setLights(0,0.9);
       if (t < 200) {
         vibrate_on = true;
         armUpperServo.write(110);
       } else if (t < 400) {
+        setLights(0,0.9);
         armUpperServo.write(70);
       } else if (t < 600) {
+        setLights(0,0.9);
         armUpperServo.write(110);
       } else if (t < 800) {
+        setLights(0,0.9);
         armUpperServo.write(70);
       } else {
+        setLights(0,0.9);
         vibrate_on = false;
         armUpperServo.write(90);
         actionState = finishing;
@@ -305,18 +336,23 @@ void execute() {
       break;
 
     case sad:
+      setLights(4,0.3);
       if (t < 500) {
+        setLights(4,0.3);
         vibrate_on = true;
         extenderServo.write(80);
         vibrate_on = false;
       } else if (t < 1000) {
+        setLights(4,0.3);
         extenderServo.write(100);
       } else {
+        setLights(4,0.3);
         extenderServo.write(90);
         actionState = finishing;
       }
     
     case wake:
+      setLights(5,1.0); 
       setState(excited);
       break;
   }
@@ -326,6 +362,48 @@ void finish() {
   actionStart = LONG_MAX;
 }
 
+void setLights(int color, float brightness){
+  int red, blue, green; 
+  switch(color){
+    case 0:
+     //RED
+     red = 255;
+     green =0;
+     blue = 0;
+    case 1:
+     //ORANGE
+     red = 255;
+     green = 153;
+     blue = 51;
+    case 2:
+    //YELLOW
+    red = 255;
+    green = 255;
+    blue = 0;
+    case 3:
+    //GREEN
+    red = 0;
+    green = 220;
+    blue = 20;
+    case 4:
+    //BLUE
+    red = 51;
+    green = 51;
+    blue = 255;
+    case 5:
+    //WHITE
+    red = 255;
+    green = 255;
+    blue = 255;
+  }
+  float prob = brightness *100;
+  for (i = 0; i < 30; i++){
+    if (rand() %100 <= prob){
+      strip.setPixelColor(i, red,blue, green);
+      }
+    }
+  }
+  strip.show();
 void loop() {
   
   //Check each sensor's value
