@@ -99,7 +99,6 @@ void debugPrintln(String msg) {
 }
 
 void setup() {
-  analogWrite(vibpin, 153);
   Serial.begin(9600);
   debugPrintln("setup()");
   
@@ -363,7 +362,7 @@ void loop() {
     time_since_behavior = 0;
   }
   if (hug_state == 1 && asleep){
-    setState(wake);
+//    setState(wake);
     asleep = false;
     }
   else if (millis() - time_since_behavior > 15000 || hug_state == 2){
