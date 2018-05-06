@@ -340,7 +340,7 @@ void loop() {
 //  debugPrint(", force = ");
 //  debugPrintln(String(force));
 
-  return;
+//  return;
 
 //  if (canAct)
 //    setState(excited);
