@@ -14,7 +14,6 @@ unsigned long LONG_MAX = 4294967295;
 
 int vibpin = 6;
 
-
 //threshold values to test against
 int32_t IDLE_ACCEL = 16000; // TODO figure out this value: equal to gravity
 int32_t IDLE_GAIN = 250;
@@ -30,7 +29,7 @@ int32_t speech_low = 8;
 int32_t toss_low = 3000;
 int32_t toss_high = 15000;
 int32_t hug_low = 700;
-int32_t high_high = 900;
+int32_t hug_high = 900;
 
 
 //speech filter vars:
@@ -200,8 +199,8 @@ int detect_force(int reading){
 
 void vibrate(int ms){
   
-  start_time = millis();
-  analogWrite(vibpin, 153)
+  unsigned long start_time = millis();
+  analogWrite(vibpin, 153);
   while (millis() - start_time < ms){
     }
   analogWrite(vibpin, 0);
@@ -300,8 +299,8 @@ void execute() {
         extenderServo.write(90);
         actionState = finishing;
       }
-    case wake:
-      setState(excited);
+//    case wake:
+//      setState(excited);
   }
 }
 
@@ -352,8 +351,8 @@ void loop() {
   } else {
     time_since_behavior = 0;
   }
-  if (hug_state == 1 && asleep = true){
-    setState(wake);
+  if (hug_state == 1 && asleep){
+//    setState(wake);
     asleep = false;
     }
   else if (millis() - time_since_behavior > 15000 || hug_state == 2){
