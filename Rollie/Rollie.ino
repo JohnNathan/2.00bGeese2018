@@ -82,9 +82,9 @@ const byte finishing = 3;
 byte actionState = 0;
 
 //Servo Creation
-Servo servo1;
-Servo servo2;
-Servo servo3;
+Servo servo_1;
+Servo servo_2;
+Servo servo_3;
 
 //LEDS creation
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(60, 6, NEO_GRB + NEO_KHZ800);
@@ -143,12 +143,12 @@ float speech_lowpass_step(float input){
        speech_past = speech_updated;
        return speech_updated;
 }
-float hug_lowpass_step(float input){s
+float hug_lowpass_filter(float input){
        hug_updated = input*(1-hug_alpha) + hug_past*(hug_alpha);
        hug_past = hug_updated;
        return hug_updated;
 }
-float force_lowpass_step(float input){
+float force_lowpass_filter(float input){
        force_updated = input*(1-force_alpha) + force_past*(force_alpha);
        force_past = force_updated;
        return force_updated;
@@ -199,7 +199,7 @@ int detect_hug(int reading){
     return 2;
   } else if (reading < hug_low && millis() - hug_start_time > 10 ){
     hug_state = 0;
-    debugPrintln("end of hug" && millis() - hug_start_time > 10 );
+//    debugPrintln("end of hug" && millis() - hug_start_time > 10 );
     return 0;
   }
   
@@ -400,13 +400,13 @@ void setLights(int color, float brightness){
     blue = 255;
   }
   float prob = brightness *100;
-  for (i = 0; i < 30; i++){
+  for (int i = 0; i < 30; i++){
     if (rand() %100 <= prob){
       strip.setPixelColor(i, red,blue, green);
       }
     }
+    strip.show();
   }
-  strip.show();
 
 
 void set_servos(int servo_1_val, int servo_2_val, int servo_3_val){
