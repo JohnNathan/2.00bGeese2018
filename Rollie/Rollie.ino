@@ -82,9 +82,9 @@ const byte finishing = 3;
 byte actionState = 0;
 
 //Servo Creation
-Servo extenderServo;
-Servo armBaseServo;
-Servo armUpperServo;
+Servo servo1;
+Servo servo2;
+Servo servo3;
 
 //LEDS creation
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(60, 6, NEO_GRB + NEO_KHZ800);
@@ -114,9 +114,9 @@ void setup() {
   
   //Initialize all servos
   debugPrintln("initializing servos...");
-  extenderServo.attach(9);
-  armBaseServo.attach(10);
-  armUpperServo.attach(11);
+  servo1.attach(9);
+  servo2.attach(10);
+  servo3.attach(11);
 
   //Create Accelerometer Communication
   #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
@@ -273,22 +273,22 @@ void execute() {
       setLights(1,1.0); 
       if (t < 200) {
         vibrate_on = true;
-        extenderServo.write(100);
+        servo1.write(100);
       } else if (t < 400) {
         setLights(1,1.0); 
         vibrate_on = false;
-        extenderServo.write(80);
+        servo1.write(80);
       } else if (t < 600) {
         setLights(1,1.0); 
         vibrate_on = true;
-        extenderServo.write(100);
+        servo1.write(100);
       } else if (t < 800) {
         setLights(1,1.0); 
         vibrate_on = false;
-        extenderServo.write(80);
+        servo1.write(80);
       } else {
         setLights(1,1.0); 
-        extenderServo.write(90);
+        servo1.write(90);
         actionState = finishing;
       }
       break;
@@ -297,18 +297,18 @@ void execute() {
       setLights(2,0.7);
       if (t < 200) {
         vibrate_on = true; 
-        armBaseServo.write(110);
+        servo2.write(110);
       } else if (t < 600) {
         setLights(2,0.7);
         vibrate_on = false;
-        armUpperServo.write(100);
+        servo3.write(100);
       } else if (t < 1000) {
         setLights(2,0.7);
-        armUpperServo.write(80);
+        servo3.write(80);
       } else {
         setLights(2,0.7);
-        armBaseServo.write(90);
-        armUpperServo.write(90);
+        servo2.write(90);
+        servo3.write(90);
         actionState = finishing;
       }
       break;
@@ -317,20 +317,20 @@ void execute() {
     setLights(0,0.9);
       if (t < 200) {
         vibrate_on = true;
-        armUpperServo.write(110);
+        servo3.write(110);
       } else if (t < 400) {
         setLights(0,0.9);
-        armUpperServo.write(70);
+        servo3.write(70);
       } else if (t < 600) {
         setLights(0,0.9);
-        armUpperServo.write(110);
+        servo3.write(110);
       } else if (t < 800) {
         setLights(0,0.9);
-        armUpperServo.write(70);
+        servo3.write(70);
       } else {
         setLights(0,0.9);
         vibrate_on = false;
-        armUpperServo.write(90);
+        servo3.write(90);
         actionState = finishing;
       }
       break;
@@ -340,14 +340,14 @@ void execute() {
       if (t < 500) {
         setLights(4,0.3);
         vibrate_on = true;
-        extenderServo.write(80);
+        servo1.write(80);
         vibrate_on = false;
       } else if (t < 1000) {
         setLights(4,0.3);
-        extenderServo.write(100);
+        servo1.write(100);
       } else {
         setLights(4,0.3);
-        extenderServo.write(90);
+        servo1.write(90);
         actionState = finishing;
       }
     
@@ -404,6 +404,53 @@ void setLights(int color, float brightness){
     }
   }
   strip.show();
+
+
+void set_servos(int servo_1_val, int servo_2_val, int servo_3_val){
+  servo_1.write(servo_1_val);
+  servo_2.write(servo_2_val);
+  servo_3.write(servo_3_val);
+  }
+
+void wobble(){
+    current = millis() % 500;
+    if (current %2 == 0){
+    reading_1 = servo_1.read();
+    reading_2 = servo_2.read();
+    reading_3 = servo_3.read();
+      if (current < 167){
+        servo_1.write(reading_1+1);
+        servo_2.write(reading_2-1);
+        servo_3.write(reading_3-1);
+        }
+  
+      else if (current < 334){
+        servo_1.write(reading_1-1);
+        servo_2.write(reading_2+1);
+        servo_3.write(reading_3-1);
+        }
+      else{
+        servo_1.write(reading_1-1);
+        servo_2.write(reading_2-1);
+        servo_3.write(reading_3+1);
+        }
+    }
+  }
+
+
+void push(bool up){
+  if (up){
+    servo_1.write(90);
+    servo_2.write(90);
+    servo_3.write(90);
+    }
+  else{
+    servo_1.write(0);
+    servo_2.write(0);
+    servo_3.write(0);
+    }
+}
+
 void loop() {
   
   //Check each sensor's value
