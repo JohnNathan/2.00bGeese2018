@@ -512,9 +512,11 @@ void loop() {
   detect_speech(gain);
   
   int32_t accel_mag = pow(pow(ax,2)+pow(ay,2)+pow(az,2), .5)-IDLE_ACCEL;
+  detect_accel(accel_mag);
 
   int force = analogRead(FSR);
-  detect_accel(accel_mag);
+  detect_hug(force);
+  
   unsigned long currentTime = millis();
 
 //  debugPrint("accel_mag = ");
