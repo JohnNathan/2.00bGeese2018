@@ -133,6 +133,9 @@ void setup() {
   analogWrite(vibpin, 0);
   strip.begin();
   strip.show();
+  push(true);
+  push(false);
+  
 }
 
 float speech_lowpass_step(float input){
@@ -140,7 +143,7 @@ float speech_lowpass_step(float input){
        speech_past = speech_updated;
        return speech_updated;
 }
-float hug_lowpass_step(float input){
+float hug_lowpass_step(float input){s
        hug_updated = input*(1-hug_alpha) + hug_past*(hug_alpha);
        hug_past = hug_updated;
        return hug_updated;
@@ -454,7 +457,7 @@ void push(bool up){
 void loop() {
   
   //Check each sensor's value
-  
+  wobble();
   accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
   int gain = abs(analogRead(MIC)-IDLE_GAIN); // range 0-1023
   detect_speech(gain);
