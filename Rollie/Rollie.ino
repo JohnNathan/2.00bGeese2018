@@ -82,9 +82,9 @@ const byte finishing = 3;
 byte actionState = 0;
 
 //Servo Creation
-Servo servo_1;
-Servo servo_2;
-Servo servo_3;
+Servo servo1;
+Servo servo2;
+Servo servo3;
 
 //LEDS creation
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(60, 6, NEO_GRB + NEO_KHZ800);
@@ -409,33 +409,33 @@ void setLights(int color, float brightness){
   }
 
 
-void set_servos(int servo_1_val, int servo_2_val, int servo_3_val){
-  servo_1.write(servo_1_val);
-  servo_2.write(servo_2_val);
-  servo_3.write(servo_3_val);
+void set_servos(int servo1_val, int servo2_val, int servo3_val){
+  servo1.write(servo1_val);
+  servo2.write(servo2_val);
+  servo3.write(servo3_val);
   }
 
 void wobble(){
-    current = millis() % 500;
+    unsigned long current = millis() % 500;
     if (current %2 == 0){
-    reading_1 = servo_1.read();
-    reading_2 = servo_2.read();
-    reading_3 = servo_3.read();
+    int reading_1 = servo1.read();
+    int reading_2 = servo2.read();
+    int reading_3 = servo3.read();
       if (current < 167){
-        servo_1.write(reading_1+1);
-        servo_2.write(reading_2-1);
-        servo_3.write(reading_3-1);
+        servo1.write(reading_1+1);
+        servo2.write(reading_2-1);
+        servo3.write(reading_3-1);
         }
   
       else if (current < 334){
-        servo_1.write(reading_1-1);
-        servo_2.write(reading_2+1);
-        servo_3.write(reading_3-1);
+        servo1.write(reading_1-1);
+        servo2.write(reading_2+1);
+        servo3.write(reading_3-1);
         }
       else{
-        servo_1.write(reading_1-1);
-        servo_2.write(reading_2-1);
-        servo_3.write(reading_3+1);
+        servo1.write(reading_1-1);
+        servo2.write(reading_2-1);
+        servo3.write(reading_3+1);
         }
     }
   }
@@ -443,14 +443,14 @@ void wobble(){
 
 void push(bool up){
   if (up){
-    servo_1.write(90);
-    servo_2.write(90);
-    servo_3.write(90);
+    servo1.write(90);
+    servo2.write(90);
+    servo3.write(90);
     }
   else{
-    servo_1.write(0);
-    servo_2.write(0);
-    servo_3.write(0);
+    servo1.write(0);
+    servo2.write(0);
+    servo3.write(0);
     }
 }
 
