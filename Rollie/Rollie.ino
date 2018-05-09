@@ -273,74 +273,87 @@ void execute() {
   unsigned long t = millis() - actionStart;
   switch(state) {
     case excited:
+      wobble();
       setLights(1,1.0); 
       if (t < 200) {
         vibrate_on = true;
-        servo1.write(100);
+        //servo1.write(100);
       } else if (t < 400) {
         setLights(1,1.0); 
         vibrate_on = false;
-        servo1.write(80);
+        //servo1.write(80);
       } else if (t < 600) {
         setLights(1,1.0); 
         vibrate_on = true;
-        servo1.write(100);
+        //servo1.write(100);
       } else if (t < 800) {
         setLights(1,1.0); 
         vibrate_on = false;
-        servo1.write(80);
+        //servo1.write(80);
       } else {
         setLights(1,1.0); 
-        servo1.write(90);
+        //servo1.write(90);
         actionState = finishing;
       }
       break;
 
     case happy:
       setLights(2,0.7);
+      wobble();
       if (t < 200) {
         vibrate_on = true; 
-        servo2.write(110);
+        //servo2.write(110);
       } else if (t < 600) {
         setLights(2,0.7);
         vibrate_on = false;
-        servo3.write(100);
+        //servo3.write(100);
       } else if (t < 1000) {
         setLights(2,0.7);
-        servo3.write(80);
+        //servo3.write(80);
       } else {
         setLights(2,0.7);
-        servo2.write(90);
-        servo3.write(90);
+        //servo2.write(90);
+        //servo3.write(90);
         actionState = finishing;
       }
       break;
 
     case angry:
+    push(true);
     setLights(0,0.9);
       if (t < 200) {
         vibrate_on = true;
-        servo3.write(110);
+        //servo3.write(110);
+       
       } else if (t < 400) {
         setLights(0,0.9);
-        servo3.write(70);
+        //servo3.write(70);
+        push(false);
       } else if (t < 600) {
         setLights(0,0.9);
-        servo3.write(110);
+        //servo3.write(110);
+         push(true);
+        
       } else if (t < 800) {
         setLights(0,0.9);
-        servo3.write(70);
+        //servo3.write(70);
+        
       } else {
         setLights(0,0.9);
         vibrate_on = false;
-        servo3.write(90);
+        ///servo3.write(90);
+       push(false);
+        
         actionState = finishing;
       }
+      
       break;
 
     case sad:
       setLights(4,0.3);
+      
       if (t < 500) {
+        wobble();
         setLights(4,0.3);
         vibrate_on = true;
         servo1.write(80);
@@ -355,6 +368,7 @@ void execute() {
       }
     
     case wake:
+      push(true);
       setLights(5,1.0); 
       setState(excited);
       break;
