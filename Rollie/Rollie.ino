@@ -133,8 +133,8 @@ void setup() {
   analogWrite(vibpin, 0);
   strip.begin();
   strip.show();
-  push(true);
-  push(false);
+//  push(true);
+//  push(false);
   
 }
 
@@ -416,18 +416,19 @@ void set_servos(int servo1_val, int servo2_val, int servo3_val){
   }
 
 void wobble(){
-    unsigned long current = millis() % 500;
+    int modulod_by = (1080);
+    unsigned long current = millis() % modulod_by;
     if (current %2 == 0){
     int reading_1 = servo1.read();
     int reading_2 = servo2.read();
     int reading_3 = servo3.read();
-      if (current < 167){
+      if (current < (modulod_by/3)){
         servo1.write(reading_1+1);
         servo2.write(reading_2-1);
         servo3.write(reading_3-1);
         }
   
-      else if (current < 334){
+      else if (current < (2 * modulod_by/3)){
         servo1.write(reading_1-1);
         servo2.write(reading_2+1);
         servo3.write(reading_3-1);
@@ -443,14 +444,14 @@ void wobble(){
 
 void push(bool up){
   if (up){
+    servo1.write(7);
+    servo2.write(7);
+    servo3.write(7);
+    }
+  else{
     servo1.write(90);
     servo2.write(90);
     servo3.write(90);
-    }
-  else{
-    servo1.write(0);
-    servo2.write(0);
-    servo3.write(0);
     }
 }
 
@@ -521,6 +522,6 @@ void loop() {
   }
 
   printCount++;
-  doAction();
+//  doAction();
 }
 
