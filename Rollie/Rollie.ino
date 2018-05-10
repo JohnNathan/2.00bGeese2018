@@ -2,6 +2,10 @@
 #include <I2Cdev.h>
 #include <MPU6050.h>
 #include <Adafruit_NeoPixel.h>
+#include "SD.h"
+#define SD_ChipSelectPin 4
+#include "TMRpcm.h"
+#include "SPI.h"
 
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
     #include "Wire.h"
@@ -10,6 +14,7 @@
 #define MIC A0
 #define FSR A1
 #define VIB 6
+#define SPK 10
 
 unsigned long LONG_MAX = 4294967295;
 
@@ -95,6 +100,9 @@ MPU6050 accelgyro;
 int16_t ax, ay, az;
 int16_t gx, gy, gz;
 
+//Speaker
+TMRpcm tmrpcm;
+
 uint16_t printCount = 0;
 
 void debugPrint(String msg) {
@@ -112,7 +120,12 @@ void debugPrintln(String msg) {
 void setup() {
   Serial.begin(9600);
   debugPrintln("setup()");
-  
+  tmrpcm.speakerPin(SPK);
+  if (!SD.begin(SD_ChipSelectPin)) {
+    Serial.println("SD fail");
+    return;
+  }
+  tmrpcm.setVolume(7);
   //Initialize all servos
   debugPrintln("initializing servos...");
   servo1.attach(9);
@@ -332,6 +345,7 @@ void execute() {
     case excited:
       wobble();
       setLights(1,1.0); 
+      tmrpcm.play("HL1_S.WAV");
       if (t < 200) {
         vibrate_on = true;
       } else if (t < 400) {
@@ -352,6 +366,7 @@ void execute() {
     case happy:
       setLights(2,0.7);
       wobble();
+      tmrpcm.play("HL1_S.WAV");
       if (t < 200) {
         vibrate_on = true;
       } else if (t < 600) {
