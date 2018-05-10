@@ -11,10 +11,13 @@
     #include "Wire.h"
 #endif
 
-#define MIC A0
-#define FSR A1
-#define VIB 6
-#define SPK 10
+#define MIC A6
+#define FSR A3
+#define VIB 5
+#define SPK 9
+#define SV1 A0
+#define SV2 A1
+#define SV3 A2
 
 unsigned long LONG_MAX = 4294967295;
 
@@ -31,7 +34,7 @@ int16_t hug_thr = 700;
 
 
 //speech filter vars:
-float speech_alpha = 0.55; 
+float speech_alpha = 0.1; 
 float speech_past=0;
 float speech_updated;
 
@@ -39,7 +42,7 @@ float hug_alpha = 0.1;
 float hug_past=0;
 float hug_updated;
 
-float accel_alpha = 0.85; 
+float accel_alpha = 0.1; 
 float accel_past=0;
 float accel_updated;
 
@@ -55,7 +58,7 @@ bool vibrate_on = false;
 
 
 //circular buffers for better input handling
-const byte BUF_SIZE = 16;
+const byte BUF_SIZE = 8;
 float speech_buf[BUF_SIZE] = {};
 float* speech_wr = speech_buf;
 float accel_buf[BUF_SIZE] = {};
@@ -106,13 +109,13 @@ TMRpcm tmrpcm;
 uint16_t printCount = 0;
 
 void debugPrint(String msg) {
-  if (printCount % 100 == 0) {
+  if (printCount % 1 == 0) {
     Serial.print(msg);
   }
 }
 
 void debugPrintln(String msg) {
-  if (printCount % 100 == 0) {
+  if (printCount % 1 == 0) {
     Serial.println(msg);
   }
 }
@@ -120,7 +123,7 @@ void debugPrintln(String msg) {
 void setup() {
   Serial.begin(9600);
   debugPrintln("setup()");
-  tmrpcm.speakerPin(SPK);
+  tmrpcm.speakerPin = SPK;
   if (!SD.begin(SD_ChipSelectPin)) {
     Serial.println("SD fail");
     return;
@@ -128,9 +131,9 @@ void setup() {
   tmrpcm.setVolume(7);
   //Initialize all servos
   debugPrintln("initializing servos...");
-  servo1.attach(9);
-  servo2.attach(10);
-  servo3.attach(11);
+  servo1.attach(SV1);
+  servo2.attach(SV2);
+  servo3.attach(SV3);
 
   //Create Accelerometer Communication
   #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
@@ -147,8 +150,6 @@ void setup() {
   analogWrite(VIB, 0);
   strip.begin();
   strip.show();
-//  push(true);
-//  push(false);
   
 }
 
@@ -198,17 +199,17 @@ float* accel_buf_get() {
   return result;
 }
 
-float speech_lowpass_step(float input){
+float speech_lowpass_step(float input) {
        speech_updated = input*(1-speech_alpha) + speech_past*(speech_alpha);
        speech_past = speech_updated;
        return speech_updated;
 }
-float hug_lowpass_filter(float input){
+float hug_lowpass_filter(float input) {
        hug_updated = input*(1-hug_alpha) + hug_past*(hug_alpha);
        hug_past = hug_updated;
        return hug_updated;
 }
-float accel_lowpass_filter(float input){
+float accel_lowpass_filter(float input) {
        accel_updated = input*(1-accel_alpha) + accel_past*(accel_alpha);
        accel_past = accel_updated;
        return accel_updated;
@@ -223,16 +224,16 @@ int detect_hug(int reading){
     hug_start_time = millis();
     debugPrintln("hug detected");
     return 1;
-  } else if (hug_thr < reading && millis() - hug_start_time >= LONG_HUG_TIME){
+  } else if (hug_thr < reading && millis() - hug_start_time >= LONG_HUG_TIME && hug_state != 2){
     hug_state = 2;
     debugPrintln("long hug detected");
     return 2;
-  } else if (reading < hug_thr) {
+  } else if (reading < hug_thr && hug_state != 0) {
     hug_state = 0;
     debugPrintln("end of hug");
     return hug_state;
   }
-  
+  return hug_state;
 }
 
 
@@ -390,7 +391,7 @@ void execute() {
         push(false);
       } else if (t < 600) {
         setLights(0,0.9);
-         push(true);
+        push(true);
       } else if (t < 800) {
         setLights(0,0.9);
       } else {
@@ -534,12 +535,12 @@ void loop() {
   
   unsigned long currentTime = millis();
 
-//  debugPrint("accel_mag = ");
-//  debugPrintln(String(accel_mag));
-//  debugPrint(", gain = ");
-//  debugPrint(String(gain));
-//  debugPrint(", force = ");
-//  debugPrintln(String(force));
+  debugPrint("accel_mag = ");
+  debugPrint(String(accel_mag));
+  debugPrint(",\tgain = ");
+  debugPrint(String(gain));
+  debugPrint(",\tforce = ");
+  debugPrintln(String(force));
 
 //  return;
 
