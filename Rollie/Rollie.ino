@@ -25,25 +25,25 @@ unsigned long LONG_MAX = 4294967295;
 int32_t IDLE_ACCEL = 16000; // TODO figure out this value: equal to gravity
 int32_t IDLE_GAIN = 250;
 
-int32_t shout_thr = 65;
-int32_t speech_thr = 15;
-int32_t toss_thr = 3000;
-int32_t throw_thr = 15000;
-int32_t slam_thr = 20000;
-int16_t hug_thr = 700;
+float shout_thr = 55;
+float speech_thr = 16;
+float toss_thr = 4000;
+float throw_thr = 15000;
+float slam_thr = 20000;
+float hug_thr = 700;
 
 
 //speech filter vars:
-float speech_alpha = 0.1; 
-float speech_past=0;
+float speech_alpha = 0.5; 
+float speech_past = 0;
 float speech_updated;
 
 float hug_alpha = 0.1; 
-float hug_past=0;
+float hug_past = 0;
 float hug_updated;
 
 float accel_alpha = 0.1; 
-float accel_past=0;
+float accel_past = 0;
 float accel_updated;
 
 const unsigned long LONG_HUG_TIME = 5000;
@@ -61,8 +61,10 @@ bool vibrate_on = false;
 const byte BUF_SIZE = 8;
 float speech_buf[BUF_SIZE] = {};
 float* speech_wr = speech_buf;
+float s_minmax[2] = {};
 float accel_buf[BUF_SIZE] = {};
 float* accel_wr = accel_buf;
+float a_minmax[2] = {};
 
 
 //Tracking variables
@@ -109,13 +111,13 @@ TMRpcm tmrpcm;
 uint16_t printCount = 0;
 
 void debugPrint(String msg) {
-  if (printCount % 1 == 0) {
+  if (printCount % 60 == 0) {
     Serial.print(msg);
   }
 }
 
 void debugPrintln(String msg) {
-  if (printCount % 1 == 0) {
+  if (printCount % 60 == 0) {
     Serial.println(msg);
   }
 }
@@ -142,11 +144,11 @@ void setup() {
     Fastwire::setup(400, true);
   #endif
 
-  debugPrintln("initializing I2C...");
+  Serial.println("initializing I2C...");
   accelgyro.initialize();
 
-  debugPrintln("testing MPU6050 device connection...");
-  debugPrintln(accelgyro.testConnection() ? "success" : "failure");
+  Serial.println("testing MPU6050 device connection...");
+  Serial.println(accelgyro.testConnection() ? "success" : "failure");
   analogWrite(VIB, 0);
   strip.begin();
   strip.show();
@@ -167,9 +169,11 @@ void accel_buf_write(float input) {
   }
 }
 
-float* speech_buf_get() {
+void speech_buf_get() {
+  
   float mn = 500000;
   float mx = 0;
+  
   for (float* i = speech_buf; i < speech_buf+BUF_SIZE; ++i) {
     float el = abs(*i);
     if (el > mx) {
@@ -179,13 +183,17 @@ float* speech_buf_get() {
       mn = el;
     }
   }
-  float result[] = {mn, mx};
-  return result;
+
+  *s_minmax = mn;
+  *(s_minmax+1) = mx;
+  
 }
 
-float* accel_buf_get() {
+void accel_buf_get() {
+  
   float mn = 500000;
   float mx = 0;
+  
   for (float* i = accel_buf; i < accel_buf+BUF_SIZE; ++i) {
     float el = abs(*i);
     if (el > mx) {
@@ -195,8 +203,10 @@ float* accel_buf_get() {
       mn = el;
     }
   }
-  float result[] = {mn, mx};
-  return result;
+  
+  *a_minmax = mn;
+  *(a_minmax+1) = mx;
+  
 }
 
 float speech_lowpass_step(float input) {
@@ -222,15 +232,15 @@ int detect_hug(int reading){
   if (hug_thr < reading && hug_state != 1){
     hug_state = 1;
     hug_start_time = millis();
-    debugPrintln("hug detected");
+    Serial.println("hug detected");
     return 1;
   } else if (hug_thr < reading && millis() - hug_start_time >= LONG_HUG_TIME && hug_state != 2){
     hug_state = 2;
-    debugPrintln("long hug detected");
+    Serial.println("long hug detected");
     return 2;
   } else if (reading < hug_thr && hug_state != 0) {
     hug_state = 0;
-    debugPrintln("end of hug");
+    Serial.println("end of hug");
     return hug_state;
   }
   return hug_state;
@@ -242,28 +252,30 @@ int detect_speech(int reading){
   float filtered_mic = abs(speech_lowpass_step(reading));
   speech_buf_write(filtered_mic);
 
-  float* minmax = speech_buf_get();
-  float mn = *minmax;
-  float mx = *(minmax+1);
+  float mn = *s_minmax;
+  float mx = *(s_minmax+1);
+
+  speech_buf_get();
   
-//  debugPrint("filtered_mic: ");
-//  debugPrintln(String(filtered_mic));
+//  debugPrint("speech min/max: ");
+//  debugPrint(String(mn));
+//  debugPrint("\t");
+//  debugPrint(String(mx));
   
   if (shout_thr <= mn && shout_thr <= mx && speech_state != 3){
     speech_state = 3;
-    debugPrintln("shouts detected");
+    Serial.println("shouts detected");
     return 3;
   } else if (speech_thr <= mn && speech_thr <= mx && speech_state != 2){
-    speech_state = 0;
-    debugPrintln("speech detected");
+    speech_state = 2;
+    Serial.println("speech detected");
     return 2;
   } else if (mn < speech_thr && mx < speech_thr && speech_state != 0){
     speech_state = 0;
-    debugPrintln("end of speech detected");
+    Serial.println("end of speech detected");
     return 0;
   }
-//  debugPrint("no speech change, current state is: ");
-//  debugPrintln(String(speech_state));
+  
   return speech_state;
   
 }
@@ -273,26 +285,32 @@ int detect_accel(int reading) {
   reading = accel_lowpass_filter(abs(reading));
   accel_buf_write(reading);
 
-  float* minmax = accel_buf_get();
-  float mn = *minmax;
-  float mx = *(minmax+1);
+  accel_buf_get();
+
+  float mn = *a_minmax;
+  float mx = *(a_minmax+1);
+  
+//  debugPrint(", accel min/max: ");
+//  debugPrint(String(mn));
+//  debugPrint("\t");
+//  debugPrintln(String(mx));
   
   if (slam_thr <= mn && slam_thr <= mx && accel_state != 3) {
     accel_state = 3; 
-    debugPrintln("slam detected");
+    Serial.println("slam detected");
     return 3;
   } else if (throw_thr <= mn && throw_thr <= mx && accel_state != 2) {
-      accel_state = 2;  
-      debugPrintln("throw detected");
-      return 2;
+    accel_state = 2;  
+    Serial.println("throw detected");
+    return 2;
   } else if (toss_thr <= mn && toss_thr <= mx && accel_state != 1) {
-      accel_state = 1;  
-      debugPrintln("toss detected");
-      return 1;
+    accel_state = 1;  
+    Serial.println("toss detected");
+    return 1;
   } else if (mn < toss_thr && mx < toss_thr && accel_state != 0) {
-      accel_state = 0;
-      debugPrintln("end of toss detected");
-      return 0;
+    accel_state = 0;
+    Serial.println("end of toss detected");
+    return 0;
   }
 //  debugPrint("no toss change, current state is: ");
 //  debugPrintln(String(accel_state));
@@ -343,6 +361,7 @@ void execute() {
   // called continuously through action
   unsigned long t = millis() - actionStart;
   switch(state) {
+    
     case excited:
       wobble();
       setLights(1,1.0); 
@@ -527,7 +546,7 @@ void loop() {
   int gain = abs(analogRead(MIC)-IDLE_GAIN); // range 0-1023
   detect_speech(gain);
   
-  int32_t accel_mag = pow(pow(ax,2)+pow(ay,2)+pow(az,2), .5)-IDLE_ACCEL;
+  int32_t accel_mag = sqrt(pow(ax,2)+pow(ay,2)+pow(az,2))-IDLE_ACCEL;
   detect_accel(accel_mag);
 
   int force = analogRead(FSR);
@@ -535,12 +554,12 @@ void loop() {
   
   unsigned long currentTime = millis();
 
-  debugPrint("accel_mag = ");
-  debugPrint(String(accel_mag));
-  debugPrint(",\tgain = ");
-  debugPrint(String(gain));
-  debugPrint(",\tforce = ");
-  debugPrintln(String(force));
+//  debugPrint("accel_mag = ");
+//  debugPrint(String(accel_mag));
+//  debugPrint(",\tgain = ");
+//  debugPrint(String(gain));
+//  debugPrint(",\tforce = ");
+//  debugPrintln(String(force));
 
 //  return;
 
@@ -553,7 +572,7 @@ void loop() {
   //If a sensor is within a threshold, do the action associated with said threshold.
   if (canAct) {
     timeSinceIdle = currentTime;
-  } else if (timeSinceIdle + 1500 > currentTime && canAct || hug_state == 2) {
+  } else if (timeSinceIdle + 15000 > currentTime && canAct || hug_state == 2) {
     setState(idle);
     asleep = true;
   }
@@ -574,9 +593,9 @@ void loop() {
   }
 
   if(vibrate_on) {
-    analogWrite(VIB, 153);
+    digitalWrite(VIB, 1);
   } else {
-    analogWrite(VIB, 0);
+    digitalWrite(VIB, 0);
   }
 
   printCount++;
