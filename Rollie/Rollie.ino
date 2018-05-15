@@ -92,6 +92,7 @@ const byte starting = 1;
 const byte executing = 2;
 const byte finishing = 3;
 byte actionState = 0;
+int wobbleState = 0;
 
 //Servo Creation
 Servo servo1;

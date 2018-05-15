@@ -9,7 +9,7 @@ File root;
 void setup() {
 //  return;
   tmrpcm.speakerPin = 9;
-  Serial.begin(9600);
+//  Serial.begin(9600);
   if (!SD.begin(SD_ChipSelectPin)) {
     Serial.println("SD fail");
     return;
@@ -28,6 +28,8 @@ void setup() {
 void loop(){
 //  tone(9, 440, 1000);
 //  delay(1500);
+//  tmrpcm.play("HL1_S.WAV");
+
 }
 
 void printDirectory(File dir, int numTabs) {
