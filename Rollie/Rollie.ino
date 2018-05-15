@@ -125,7 +125,7 @@ void debugPrintln(String msg) {
 }
 
 void setup() {
-//  Serial.begin(9600);
+  Serial.begin(9600);
   debugPrintln("setup()");
   tmrpcm.speakerPin = SPK;
   if (!SD.begin(SD_ChipSelectPin)) {
@@ -158,7 +158,11 @@ void setup() {
   analogWrite(VIB, 0);
   strip.begin();
   strip.show();
-  
+
+
+  servo1.write(45);
+  servo2.write(45);
+  servo3.write(45);
 }
 
 void speech_buf_write(float input) {
@@ -370,11 +374,12 @@ void start() {
     case happy:
       tmrpcm.play("Happy Short_01.WAV");
       break;
-      case angry:
+    case angry:
       tmrpcm.play("Angry_04.WAV");
       break;
-      case sad:
+    case sad:
       tmrpcm.play("Sad Short_01.WAV");
+      break;
   }
 }
 
@@ -548,6 +553,21 @@ void wobble() {
       servo3.write(reading_3-1);
     }
   }
+
+  // keep global wobble state variable, initialize to zero
+  // in wobble:
+  // keep track of the time you last incremented the wobble state;
+  //  >> if the time elapsed is under a certain value, just return
+  // increment wobble state variable and take modulo by 3, record the time (type returned by millis() is "unsigned long")
+  // result is either 0, 1, or 2
+  // if 0:
+  //  >> servo1 up, servo2 down
+  // if 1:
+  //  >> servo2 up, servo3 down
+  // if 2:
+  //  >> servo3 up, servo1 down
+  // #### will have figure out/hardcode up and down values for each servo ####
+  // Thanks!
 }
 
 
@@ -564,12 +584,13 @@ void push(bool up){
 }
 
 void loop() {
+  
+  return;
 
-  wobble();
   //Check each sensor's value
   accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
   int gain = abs(analogRead(MIC)-IDLE_GAIN); // range 0-1023
-  detect_speech(gain);
+//  detect_speech(gain);
   
   int32_t accel_mag = sqrt(pow(ax,2)+pow(ay,2)+pow(az,2))-IDLE_ACCEL;
   detect_accel(accel_mag);
@@ -607,14 +628,15 @@ void loop() {
     timeSinceIdle = currentTime;
   } else if (timeSinceIdle + 15000 > currentTime && canAct || hug_state == 2) {
     setState(idle);
-    asleep = true;
+//    asleep = true;
+  }
+  
+  if (asleep && hug_state == 1) {
+    asleep = false;
   }
 
-  if (canAct) {
-    if (hug_state == 1 && asleep) {
-  //    setState(wake);
-      asleep = false;
-    } else if (accel_state == 3) {
+  if (canAct && !asleep) {
+    if (accel_state == 3) {
       setState(angry);
     } else if (accel_state == 1 || speech_state == 2) {
       setState(happy);
