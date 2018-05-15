@@ -375,7 +375,9 @@ void start() {
       break;
       case sad:
       tmrpcm.play("Sad Short_01.WAV");
-  }
+      case wake:  
+      tmrpcm.play("Happy Short_01.WAV");
+      break;}
 }
 
 void execute() {
@@ -420,9 +422,10 @@ void execute() {
       break;
 
     case angry:
-      push(true);
+      
       setLights(0,0.9);
       if (t < 200) {
+        push(true);
         vibrate_on = true;
       } else if (t < 400) {
         setLights(0,0.9);
