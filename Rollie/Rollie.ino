@@ -99,7 +99,7 @@ Servo servo2;
 Servo servo3;
 
 //LEDS creation
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(60, STP, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(30, STP, NEO_GRB + NEO_KHZ800);
 
 //Accelerometer Creation
 MPU6050 accelgyro;
@@ -108,6 +108,7 @@ int16_t gx, gy, gz;
 
 //Speaker
 TMRpcm tmrpcm;
+File root;
 
 uint16_t printCount = 0;
 
@@ -124,17 +125,17 @@ void debugPrintln(String msg) {
 }
 
 void setup() {
-  Serial.begin(9600);
+//  Serial.begin(9600);
   debugPrintln("setup()");
   tmrpcm.speakerPin = SPK;
   if (!SD.begin(SD_ChipSelectPin)) {
     Serial.println("SD fail");
     return;
   }
-  
+//  
   tmrpcm.setVolume(7);
 
-//  tmrpcm.play("HL1_S.WAV");
+  tmrpcm.play("Happy Short_01.WAV");
   
   //Initialize all servos
   debugPrintln("initializing servos...");
@@ -335,6 +336,7 @@ void doAction() {
     case idling:
       laze();
       break;
+      
 
     case starting:
       start();
@@ -363,11 +365,16 @@ void start() {
 
   switch(state) {
     case excited:
-      tmrpcm.play("HL1_S.WAV");
+      tmrpcm.play("Happy Long_01.WAV");
       break;
     case happy:
-      tmrpcm.play("HL1_S.WAV");
+      tmrpcm.play("Happy Short_01.WAV");
       break;
+      case angry:
+      tmrpcm.play("Angry_04.WAV");
+      break;
+      case sad:
+      tmrpcm.play("Sad Short_01.WAV");
   }
 }
 
@@ -503,7 +510,7 @@ void setLights(int color, float brightness){
   float prob = brightness *100;
   for (int i = 0; i < 30; i++) {
     if (rand() %100 <= prob) {
-      strip.setPixelColor(i, red,blue, green);
+      strip.setPixelColor(i, red, green, blue);
     }
   }
   strip.show();
@@ -530,15 +537,15 @@ void wobble() {
     if (current < (modulod_by/3)) {
       servo1.write(reading_1+1);
       servo2.write(reading_2-1);
-      servo3.write(reading_3-1);
+      servo3.write(reading_3+1);
     } else if (current < (2 * modulod_by/3)) {
       servo1.write(reading_1-1);
       servo2.write(reading_2+1);
-      servo3.write(reading_3-1);
+      servo3.write(reading_3+1);
     } else {
       servo1.write(reading_1-1);
       servo2.write(reading_2-1);
-      servo3.write(reading_3+1);
+      servo3.write(reading_3-1);
     }
   }
 }
@@ -548,16 +555,17 @@ void push(bool up){
   if (up) {
     servo1.write(7);
     servo2.write(7);
-    servo3.write(7);
+    servo3.write(90);
   } else {
     servo1.write(90);
     servo2.write(90);
-    servo3.write(90);
+    servo3.write(7);
   }
 }
 
 void loop() {
-  
+
+  wobble();
   //Check each sensor's value
   accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
   int gain = abs(analogRead(MIC)-IDLE_GAIN); // range 0-1023
@@ -589,7 +597,7 @@ void loop() {
 //  servo1.write(10);
 //  delay(1000);
 
-  tone(9, 150);
+//  tone(9, 150);
   
   return;
   
