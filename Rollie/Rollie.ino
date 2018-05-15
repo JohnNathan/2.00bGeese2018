@@ -18,6 +18,7 @@
 #define SV1 A0
 #define SV2 A1
 #define SV3 A2
+#define STP 6
 
 unsigned long LONG_MAX = 4294967295;
 
@@ -26,7 +27,7 @@ int32_t IDLE_ACCEL = 16000; // TODO figure out this value: equal to gravity
 int32_t IDLE_GAIN = 250;
 
 float shout_thr = 55;
-float speech_thr = 16;
+float speech_thr = 18;
 float toss_thr = 4000;
 float throw_thr = 15000;
 float slam_thr = 20000;
@@ -98,7 +99,7 @@ Servo servo2;
 Servo servo3;
 
 //LEDS creation
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(60, 6, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(60, STP, NEO_GRB + NEO_KHZ800);
 
 //Accelerometer Creation
 MPU6050 accelgyro;
@@ -130,7 +131,11 @@ void setup() {
     Serial.println("SD fail");
     return;
   }
+  
   tmrpcm.setVolume(7);
+
+//  tmrpcm.play("HL1_S.WAV");
+  
   //Initialize all servos
   debugPrintln("initializing servos...");
   servo1.attach(SV1);
@@ -355,6 +360,15 @@ void laze() {
 void start() {
   // called on action start
   actionStart = millis();
+
+  switch(state) {
+    case excited:
+      tmrpcm.play("HL1_S.WAV");
+      break;
+    case happy:
+      tmrpcm.play("HL1_S.WAV");
+      break;
+  }
 }
 
 void execute() {
@@ -365,7 +379,6 @@ void execute() {
     case excited:
       wobble();
       setLights(1,1.0); 
-      tmrpcm.play("HL1_S.WAV");
       if (t < 200) {
         vibrate_on = true;
       } else if (t < 400) {
@@ -384,9 +397,8 @@ void execute() {
       break;
 
     case happy:
-      setLights(2,0.7);
       wobble();
-      tmrpcm.play("HL1_S.WAV");
+      setLights(2,0.7);
       if (t < 200) {
         vibrate_on = true;
       } else if (t < 600) {
@@ -510,6 +522,11 @@ void wobble() {
     int reading_1 = servo1.read();
     int reading_2 = servo2.read();
     int reading_3 = servo3.read();
+    Serial.print(reading_1);
+    Serial.print("\t");
+    Serial.print(reading_2);
+    Serial.print("\t");
+    Serial.println(reading_3);
     if (current < (modulod_by/3)) {
       servo1.write(reading_1+1);
       servo2.write(reading_2-1);
@@ -566,7 +583,15 @@ void loop() {
 //  if (canAct)
 //    setState(excited);
 //  doAction();
-//  return;
+
+//  servo1.write(70);
+//  delay(1000);
+//  servo1.write(10);
+//  delay(1000);
+
+  tone(9, 150);
+  
+  return;
   
   //Check sensor values against the thresholds
   //If a sensor is within a threshold, do the action associated with said threshold.
